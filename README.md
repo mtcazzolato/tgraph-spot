@@ -8,8 +8,8 @@ Check file `requirements.txt`
 
 To create and use a virtual environment, type:
 
-    python -m venv wcw_venv
-    source wcw_venv/bin/activate
+    python -m venv tgraph_venv
+    source tgraph_venv/bin/activate
     pip install -r requirements.txt
  
  
