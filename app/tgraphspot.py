@@ -11,26 +11,29 @@ from window_hexbin import launch_w_hexbin
 from window_lasso import launch_w_lasso
 from window_scatter_matrix import launch_w_scatter_matrix
 from window_deep_dive import launch_deep_dive
+from window_blocked_list import launch_w_blocked_list
+
+# Change page width and configure on load
+st.set_page_config(
+                   layout="wide",
+                   page_icon="🔎",
+                   page_title="TgraphSpot App",
+                   initial_sidebar_state="auto"
+)
 
 # Available taks
 w_tasks = ["Feature extraction",
            "Hexbin scatter plot",
-           "Lasso selection and deep dive",
+           "Lasso selection and parallel coordinates",
            "Interactive scatter matrix",
-           "Deep Dive"
+           "Deep Dive",
+           "Manage blocked-list"
 ]
-
-# Change page width and configure on load
-st.set_page_config(layout="wide",
-                   page_icon="🔎",
-                   page_title="tgraphSpot App",
-                   initial_sidebar_state="auto"
-    )
 
 with st.sidebar:
     st.write(
         """
-        # 🔎 tgraphSpot App
+        # 🔎 TgraphSpot App
         Fast and Effective Anomaly Detection for tGraphs
         """
     )
@@ -52,5 +55,7 @@ elif (selectbox_window_task == w_tasks[3]):
     launch_w_scatter_matrix()
 elif (selectbox_window_task == w_tasks[4]):
     launch_deep_dive()
+elif (selectbox_window_task == w_tasks[5]):
+    launch_w_blocked_list()
 else:
     st.write("# Sorry, tool not available yet")

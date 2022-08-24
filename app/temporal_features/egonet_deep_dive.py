@@ -99,19 +99,20 @@ def fill_temporal_features(df_slice, df_nodes, node_direction="source", prefix='
 
     return df_nodes
 
-def get_degrees(df_data, df_nodes):
+def get_degrees(df_data, df_nodes, selected_date, n_days=1):
     global G, all_prefix
 
     G = nx.empty_graph(create_using=nx.DiGraph())
 
     # hours = df_data[TIMESTAMP].dt.hour.unique()
     hours = np.arange(0, 24)
-    days = df_data[TIMESTAMP].dt.day.unique()
+    # days = df_data[TIMESTAMP].dt.day.unique()
+    days = selected_date.day
 
     n_features_degree = 0
     all_prefix = []
 
-    for d in days:
+    for d in range(days, days+n_days):
         df = df_data[df_data[TIMESTAMP].dt.day == d]
         for h in range(min(hours), max(hours)+1):#, h_interval):
             prefix = str(d) + '_' + str(h)
@@ -125,7 +126,7 @@ def get_degrees(df_data, df_nodes):
 
     G = nx.empty_graph(create_using=nx.DiGraph())
             
-    for d in days:
+    for d in range(days, days+n_days):
         df = df_data[df_data[TIMESTAMP].dt.day == d]
         for h in range(min(hours), max(hours)+1):#, h_interval):
             prefix = str(d) + '_' + str(h)
@@ -138,12 +139,13 @@ def get_degrees(df_data, df_nodes):
 
     return df_nodes
 
-def get_temporal_features(df_data, df_nodes):
+def get_temporal_features(df_data, df_nodes, selected_date, n_days=1):
     hours = np.arange(0, 24)
-    days = df_data[TIMESTAMP].dt.day.unique()
+    # days = df_data[TIMESTAMP].dt.day.unique()
+    days = selected_date.day
 
     idx_previous=[]
-    for d in days:
+    for d in range(days, days+n_days):
         df_slice = df_data[df_data[TIMESTAMP].dt.day == d]
         for h in range(min(hours), max(hours)+1):#, h_interval):
             prefix = str(d) + '_' + str(h)
@@ -158,7 +160,7 @@ def get_temporal_features(df_data, df_nodes):
                                 prefix_direction='out_')
             
     idx_previous=[]
-    for d in days:
+    for d in range(days, days+n_days):
         df_slice = df_data[df_data[TIMESTAMP].dt.day == d]
         for h in range(min(hours), max(hours)+1):#, h_interval):
             prefix = str(d) + '_' + str(h)
@@ -300,7 +302,7 @@ def get_cum_call_counts(df_nodes):
     return cum_sum_in_call_count(df_nodes), cum_sum_out_call_count(df_nodes)
 
 
-def get_curves(df_nodes, df_raw_data, source, destination, measure, timestamp):
+def get_curves(df_nodes, df_raw_data, source, destination, measure, timestamp, selected_date, n_days=1):
     global MEASURE, TIMESTAMP, SOURCE, DESTINATION
 
     SOURCE = source
@@ -328,8 +330,8 @@ def get_curves(df_nodes, df_raw_data, source, destination, measure, timestamp):
     df_source=[]
     df_destination=[]
 
-    df_temporal_features = get_degrees(df_egonet, df_temporal_features)
-    df_temporal_features = get_temporal_features(df_egonet, df_temporal_features)
+    df_temporal_features = get_degrees(df_egonet, df_temporal_features, selected_date, n_days)
+    df_temporal_features = get_temporal_features(df_egonet, df_temporal_features, selected_date, n_days)
     fig_cum_sum_in_degree = cum_sum_in_degree(df_temporal_features)
     fig_cum_sum_out_degree = cum_sum_out_degree(df_temporal_features)
     fig_cum_sum_in_call_count, fig_cum_sum_out_call_count = get_cum_call_counts(df_temporal_features)
@@ -349,9 +351,14 @@ def get_node_curves(df_temporal_features, query_hash):
 
 
     for qhash in [query_hash]:
-        row = df_temporal_features[df_temporal_features[NODE_ID] == qhash].index[0]
-        plt.bar(x = np.arange(len(columns)),
-                height=df_temporal_features[columns].iloc[row].values)
+        print(qhash)
+        row = df_temporal_features[df_temporal_features[NODE_ID].astype(str) == str(qhash)]
+        print(row)
+        
+        if len(row)>0:
+            row = row.index[0]
+            plt.bar(x = np.arange(len(columns)),
+                    height=df_temporal_features[columns].iloc[row].values)
 
     plt.grid()
     plt.title('Cumulated incoming call duration per hour in 48 hours')
@@ -367,9 +374,11 @@ def get_node_curves(df_temporal_features, query_hash):
 
 
     for qhash in [query_hash]:
-        row = df_temporal_features[df_temporal_features[NODE_ID] == qhash].index[0]
-        plt.bar(x = np.arange(len(columns)),
-                height=df_temporal_features[columns].iloc[row].values)
+        row = df_temporal_features[df_temporal_features[NODE_ID].astype(str) == str(qhash)]
+        if len(row)>0:
+            row = row.index[0]
+            plt.bar(x = np.arange(len(columns)),
+                    height=df_temporal_features[columns].iloc[row].values)
 
     plt.grid()
     plt.title('Cumulated outgoing call duration per hour in 48 hours')

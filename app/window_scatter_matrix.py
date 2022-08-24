@@ -1,4 +1,12 @@
+# Author: Mirela Cazzolato
+# Date: July 2022
+# Goal: Window to select raw data and generate t-graph features
+# =======================================================================
+
+from turtle import width
 import streamlit as st
+
+import os.path
 
 import numpy as np
 import pandas as pd
@@ -20,18 +28,25 @@ import cross_associations.cluster_search as cs
 
 sns.set()
 
+file_blocked_list="data_sample/blocked-list.csv"
 NODE_ID="node_ID"
 SOURCE="source"
 DESTINATION="destination"
 MEASURE="measure"
 flag_graph_constructed=False
+plotly_width="100%"
+plotly_height=800
 
 # TODO: add config file with preset columns/cases
-preset_features = ("out_degree, in_degree, core, in_median_iat, out_median_measure",
+preset_features = ("in_degree, out_degree, core",
+                   "weighted_in_degree, weighted_out_degree, core",
+                   "out_degree, in_degree, core, in_median_iat, out_median_measure",
                    "out_degree, in_degree, in_median_measure, out_median_measure",
                    "out_call_count, in_call_count, weighted_degree, core")
 
-preset_feature_columns = (["out_degree", "in_degree", "core", "in_median_iat", "out_median_measure"],
+preset_feature_columns = (["in_degree", "out_degree", "core"],
+                          ["weighted_in_degree", "weighted_out_degree", "core"],
+                          ["out_degree", "in_degree", "core", "in_median_iat", "out_median_measure"],
                           ["out_degree", "in_degree", "in_median_measure", "out_median_measure"],
                           ["out_call_count", "in_call_count", "weighted_degree", "core"])
 
@@ -58,6 +73,16 @@ def read_files(file_features, file_graph):
     
     # File with raw data (source, destination, measure, timestamp) to generate the graph
     df_graph = pd.read_csv(file_graph)
+
+    if os.path.isfile(file_blocked_list):
+        # Remove nodes in the blocked-list
+        df_blocked_list = pd.read_csv(file_blocked_list)
+
+        df = df[~df[NODE_ID].isin(list(df_blocked_list[NODE_ID].values))].reset_index(drop=True)
+
+        df_graph = df_graph[~df_graph[SOURCE].isin(list(df_blocked_list[NODE_ID].values))]
+        df_graph = df_graph[~df_graph[DESTINATION].isin(df_blocked_list[NODE_ID].values)].reset_index(drop=True)
+
     flag_graph_constructed=False
 
 def update_sidebar():
@@ -65,7 +90,7 @@ def update_sidebar():
     Add options to the sidebar
     """
 
-    global df, ego_radius
+    global df, ego_radius, max_nodes_association_matrix
     with st.sidebar:
         ego_radius = st.number_input(
             "EgoNet radius parameter",
@@ -73,9 +98,22 @@ def update_sidebar():
             max_value=5,
             value=2,
             step=1,
-            format="%d"
+            format="%d",
+            help="""Radius of the egonet. It
+                  may take a while to run. Use with caution."""
         )
 
+        max_nodes_association_matrix = st.number_input(
+            "Max #nodes for matrix association",
+            min_value=1,
+            # max_value=5,
+            value=500,
+            step=20,
+            format="%d",
+            help="""Maximum number of nodes allowed to generate the
+                  matrix association plot. With high #nodes, it
+                  may take a while to run. Use with caution."""
+        )
 
 def populate_selectbox_graph():
     """
@@ -168,7 +206,6 @@ def plot_scatter_matrix(columns):
         title='Scatter matrix with graph information',
         dragmode='select',
         hovermode='closest',
-        height=1000,
     ) 
     
     return fig
@@ -204,7 +241,7 @@ def get_egonet(G, suspecious_nodes, radius=1, column=''):
     return final_G, idx_suspecious_nodes
 
 
-def plot_adj_matrix(G, markersize=2):
+def plot_adj_matrix(G, markersize=2, compute_associations=True):
     """
     Plot adjacency matrix of the given graph
 
@@ -214,6 +251,8 @@ def plot_adj_matrix(G, markersize=2):
         graph to show
     markersize: int
         size of the marker to show the correspondences in the plot
+    compute_associations: boolean
+        informs if the matrix associations should be generated
     """
 
     fig, ax = plt.subplots()
@@ -223,7 +262,10 @@ def plot_adj_matrix(G, markersize=2):
     plt.xlabel('destination')
     # plt.tight_layout()
 
-    fig_cross_associations = plot_cross_associations(nx.adjacency_matrix(G))
+    if compute_associations: # Compute matrix associations
+        fig_cross_associations = plot_cross_associations(nx.adjacency_matrix(G))
+    else:
+        return fig  # Skip matrix associations and return only the original matrix
 
     return fig, fig_cross_associations
 
@@ -277,6 +319,7 @@ def plot_cross_associations(sparse_matrix, markersize=2):
 
     ax1.spy(cluster_search._matrix.transformed_matrix, markersize=markersize, color='black')
     ax1.set_aspect('equal', adjustable='box')
+    
     return fig_cross_associations
 
 
@@ -292,92 +335,105 @@ def launch_w_scatter_matrix():
         ### Select nodes using multiple features at the same time
         """
     )
+    with st.expander(label="Input data", expanded=True):
+        selected_points = []
+        col1_file_selection, col2_file_selection = st.columns(2)
 
-    selected_points = []
-    col1_file_selection, col2_file_selection = st.columns(2)
+        with col1_file_selection:
+            file_features = st.file_uploader(label="Select a file with features",
+                                    type=['txt', 'csv'])
 
-    with col1_file_selection:
-        file_features = st.file_uploader(label="Select a file with features",
-                                type=['txt', 'csv'])
+            use_example_features = st.checkbox("Use example file with features",
+                                    False,
+                                    help="Use in-built example file with features to demo the app")
 
-        use_example_features = st.checkbox("Use example file with features",
-                                False,
-                                help="Use in-built example file with features to demo the app")
+        with col2_file_selection:
+            file_graph = st.file_uploader(label="Select a file with raw data",
+                                    type=['txt', 'csv'])
 
-    with col2_file_selection:
-        file_graph = st.file_uploader(label="Select a file with raw data",
-                                type=['txt', 'csv'])
+            use_example_graph = st.checkbox("Use example file with raw data",
+                                    False,
+                                    help="Use in-built example file with raw data to demo the app")
 
-        use_example_graph = st.checkbox("Use example file with raw data",
-                                False,
-                                help="Use in-built example file with raw data to demo the app")
+        if use_example_features and not file_features:
+            file_features = "allFeatures_nodeVectors.csv"
 
-    if use_example_features and not file_features:
-        file_features = "allFeatures_nodeVectors.csv"
+        if use_example_graph and not file_graph:
+            file_graph = "data_sample/sample_raw_data.csv"
 
-    if use_example_graph and not file_graph:
-        file_graph = "data_sample/sample_raw_data.csv"
+        if file_features and file_graph:
+            read_files(file_features, file_graph)
 
-    if file_features and file_graph:
-        read_files(file_features, file_graph)
+            populate_selectbox_graph()
 
-        populate_selectbox_graph()
+            if st.button('Construct graph'):
+                construct_graph()
+    
+    
+    with st.expander(label="Visualize features", expanded=True):
+        if flag_graph_constructed:
+            update_sidebar()
 
-        if st.button('Construct graph'):
-            construct_graph()
+            # col1_feature_selection, col2_feature_selection = st.columns([2, 1])
+
+            checkbox_custom_columns = st.checkbox("Custom features",
+                    help="Select desired features or unselect this option to show pre-set feature combinations.",
+                    value=True)
+
+            if checkbox_custom_columns:
+                selected_columns = st.multiselect("Choose features to visualize",
+                                                    df.columns[1:].values)
+            else:
+                preset_columns = st.radio("Pre-set feature combinations",
+                                            (preset_features))
                 
-    if flag_graph_constructed:
-        update_sidebar()
+                # TODO: maybe improve this with a loop
+                if (preset_columns == preset_features[0]):
+                    selected_columns = preset_feature_columns[0]
+                elif (preset_columns == preset_features[1]):
+                    selected_columns = preset_feature_columns[1]
+                elif (preset_columns == preset_features[2]):
+                    selected_columns = preset_feature_columns[2]
+                elif (preset_columns == preset_features[3]):
+                    selected_columns = preset_feature_columns[3]
+                elif (preset_columns == preset_features[4]):
+                    selected_columns = preset_feature_columns[4]
+                
+            if (len(selected_columns) > 2):
+                fig = plot_scatter_matrix(selected_columns)
+                selected_points = plotly_events(fig, select_event=True,
+                                                override_height=plotly_height,
+                                                override_width=plotly_width,)
 
-        # col1_feature_selection, col2_feature_selection = st.columns([2, 1])
+    with st.expander(label="Deep dive on selected nodes", expanded=True):
+        if len(selected_points) > 0:
+            st.write("Selected nodes:", len(selected_points))
+            df_selected = pd.DataFrame(selected_points)
+            st.dataframe(df.loc[df_selected["pointNumber"].values])
 
-        checkbox_custom_columns = st.checkbox("Custom features",
-                help="Select desired features or unselect this option to show pre-set feature combinations.",
-                value=True)
+            st.write("### Adjacency matrix of the generated EgoNet")
 
-        if checkbox_custom_columns:
-            selected_columns = st.multiselect("Choose features to visualize",
-                                                df.columns[1:].values)
-        else:
-            preset_columns = st.radio("Pre-set feature combinations",
-                                        (preset_features))
+            final_G, idx_suspecious_nodes = get_egonet(G,
+                                    suspecious_nodes=df.loc[df_selected["pointNumber"].values][NODE_ID],
+                                    radius=ego_radius, #2-step way egonet
+                                    column="core")
             
-            # TODO: maybe improve this with a loop
-            if (preset_columns == preset_features[0]):
-                selected_columns = preset_feature_columns[0]
-            elif (preset_columns == preset_features[1]):
-                selected_columns = preset_feature_columns[1]
-            elif (preset_columns == preset_features[2]):
-                selected_columns = preset_feature_columns[2]
-            
-        if (len(selected_columns) > 2):
-            fig = plot_scatter_matrix(selected_columns)
-            selected_points = plotly_events(fig, select_event=True)
+            st.write("EgoNet size:", len(final_G.nodes))
 
-        with st.expander(label="Deep dive on selected nodes", expanded=True):
-            if len(selected_points) > 0:
-                st.write("Selected nodes:", len(selected_points))
-                df_selected = pd.DataFrame(selected_points)
-                st.dataframe(df.loc[df_selected["pointNumber"].values])
+            if len(final_G.nodes) < max_nodes_association_matrix:
+                fig_adj_matrix, fig_cross_associations = plot_adj_matrix(G=final_G, compute_associations=True)
+            else:
+                fig_adj_matrix = plot_adj_matrix(G=final_G, compute_associations=False)
 
-                st.write("### Adjacency matrix of the generated EgoNet")
+            col1, col2 = st.columns([1, 1])
+            col1.pyplot(fig_adj_matrix)
 
-                final_G, idx_suspecious_nodes = get_egonet(G,
-                                        suspecious_nodes=df.loc[df_selected["pointNumber"].values][NODE_ID],
-                                        radius=ego_radius, #2-step way egonet
-                                        column="core")
-                
-                st.write("EgoNet size:", len(final_G.nodes))
-                
-                fig_adj_matrix, fig_cross_associations = plot_adj_matrix(G=final_G)
-                
-                col1, col2 = st.columns([1, 1])
-                col1.pyplot(fig_adj_matrix, use_container_width=False)
-                col2.pyplot(fig_cross_associations, use_container_width=False)
+            if len(final_G.nodes) < max_nodes_association_matrix:
+                col2.pyplot(fig_cross_associations)
 
-                st.write("Nodes in the EgoNet:")
-                df_result = pd.DataFrame(data=final_G.nodes, columns=[NODE_ID]).set_index(NODE_ID).join(df.set_index(NODE_ID)).reset_index()
-                df_result.columns=df.columns
-                st.write(df_result)
+            st.write("Nodes in the EgoNet:")
+            df_result = pd.DataFrame(data=final_G.nodes, columns=[NODE_ID]).set_index(NODE_ID).join(df.set_index(NODE_ID)).reset_index()
+            df_result.columns=df.columns
+            st.write(df_result.fillna(0))
 
 

@@ -1,4 +1,11 @@
+# Author: Mirela Cazzolato
+# Date: July 2022
+# Goal: Window to select raw data and generate t-graph features
+# =======================================================================
+
 import streamlit as st
+
+import os.path
 
 import numpy as np
 import pandas as pd
@@ -21,11 +28,15 @@ import cross_associations.cluster_search as cs
 
 sns.set()
 
+file_blocked_list="data_sample/blocked-list.csv"
 NODE_ID="node_ID"
 SOURCE="source"
 DESTINATION="destination"
 MEASURE="measure"
 flag_graph_constructed=False
+plotly_width="100%"
+plotly_height=800
+
 
 def read_files(file_features, file_graph):
     """
@@ -50,6 +61,17 @@ def read_files(file_features, file_graph):
     
     # File with raw data (source, destination, measure, timestamp) to generate the graph
     df_graph = pd.read_csv(file_graph)
+
+    if os.path.isfile(file_blocked_list):
+        # Remove nodes in the blocked-list
+        df_blocked_list = pd.read_csv(file_blocked_list)
+
+        df = df[~df[NODE_ID].isin(list(df_blocked_list[NODE_ID].values))].reset_index(drop=True)
+
+        df_graph = df_graph[~df_graph[SOURCE].isin(list(df_blocked_list[NODE_ID].values))]
+        df_graph = df_graph[~df_graph[DESTINATION].isin(df_blocked_list[NODE_ID].values)].reset_index(drop=True)
+
+    df.fillna(0, inplace=True)
     flag_graph_constructed=False
     
 def update_sidebar():
@@ -59,12 +81,6 @@ def update_sidebar():
 
     global df, ego_radius, max_nodes_association_matrix
     with st.sidebar:
-        # TODO
-        # nrows = st.slider(
-        #     "# points in the interactive plot",
-        #     min_value=1, max_value=int(len(df)), value=min(len(df), 20_000)
-        # )
-
         ego_radius = st.number_input(
             "EgoNet radius parameter",
             min_value=1,
@@ -179,7 +195,7 @@ def plot_scatter():
                                     mode = 'markers')])
     f.layout.xaxis.title = feature1.replace('_', ' ') + ' -- log10(x+1)'
     f.layout.yaxis.title = feature2.replace('_', ' ') + ' -- log10(x+1)'
-    f.update_layout(width=900,height=800)
+    # f.update_layout(width=plotly_width,height=plotly_height)
 
     scatter = f.data[0]
     scatter.marker.opacity = 0.5
@@ -335,41 +351,42 @@ def launch_w_lasso():
         """
     )
     
-    selected_points = []
-    df_result = pd.DataFrame()
-    col1_file_selection, col2_file_selection = st.columns(2)
+    with st.expander(label="Input data", expanded=True):
+        selected_points = []
+        df_result = pd.DataFrame()
+        col1_file_selection, col2_file_selection = st.columns(2)
 
-    with col1_file_selection:
-        file_features = st.file_uploader(label="Select a file with features",
-                                type=['txt', 'csv'])
+        with col1_file_selection:
+            file_features = st.file_uploader(label="Select a file with features",
+                                    type=['txt', 'csv'])
 
-        use_example_features = st.checkbox("Use example file with features",
-                                False,
-                                help="Use in-built example file with features to demo the app")
+            use_example_features = st.checkbox("Use example file with features",
+                                    False,
+                                    help="Use in-built example file with features to demo the app")
 
-    with col2_file_selection:
-        file_graph = st.file_uploader(label="Select a file with raw data",
-                                type=['txt', 'csv'])
-                                
-        use_example_graph = st.checkbox("Use example file with raw data",
-                                False,
-                                help="Use in-built example file of raw data to demo the app")
+        with col2_file_selection:
+            file_graph = st.file_uploader(label="Select a file with raw data",
+                                    type=['txt', 'csv'])
+                                    
+            use_example_graph = st.checkbox("Use example file with raw data",
+                                    False,
+                                    help="Use in-built example file of raw data to demo the app")
+        
+
+        if use_example_features and not file_features:
+            file_features = "allFeatures_nodeVectors.csv"
+
+        if use_example_graph and not file_graph:
+            file_graph = "data_sample/sample_raw_data.csv"
     
+        if file_features and file_graph:
+            read_files(file_features, file_graph)
 
-    if use_example_features and not file_features:
-        file_features = "allFeatures_nodeVectors.csv"
+            populate_selectbox_graph()
 
-    if use_example_graph and not file_graph:
-        file_graph = "data_sample/sample_raw_data.csv"
+            if st.button('Construct graph'):
+                construct_graph()
     
-    if file_features and file_graph:
-        read_files(file_features, file_graph)
-
-        populate_selectbox_graph()
-
-        if st.button('Construct graph'):
-            construct_graph()
-
     if flag_graph_constructed:
         update_sidebar()
 
@@ -383,12 +400,11 @@ def launch_w_lasso():
             else:
                 # st.write("### Select nodes of interest")
 
-                # col_plotly = st.columns([1])
-
-                # with col_plotly:
                 fig = plot_scatter()
                 # Add interactive scatter plot
-                selected_points = plotly_events(fig, select_event=True)
+                selected_points = plotly_events(fig, select_event=True,
+                                                override_height=plotly_height,
+                                                override_width=plotly_width,)
             
         with st.expander(label="Deep dive on selected nodes", expanded=True):
             if len(selected_points) > 0:
@@ -422,7 +438,7 @@ def launch_w_lasso():
                 st.write("Nodes in the EgoNet:")
                 df_result = pd.DataFrame(data=final_G.nodes, columns=[NODE_ID]).set_index(NODE_ID).join(df.set_index(NODE_ID)).reset_index()
                 df_result.columns=df.columns
-                st.write(df_result)
+                st.write(df_result.fillna(0))
 
         if len(df_result) > 0:
             with st.expander(label="Parallel coordinates", expanded=True):

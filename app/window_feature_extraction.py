@@ -55,7 +55,7 @@ def populate_selectbox_columns():
         timestamp = st.selectbox(
                         "Select TIMESTAMP column",
                         options=columns,
-                        index=2)
+                        index=3)
     
 def run_t_graph(file, source, destination, measure, timestamp):
     """

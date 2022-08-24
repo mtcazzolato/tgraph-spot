@@ -1,5 +1,7 @@
 import streamlit as st
 
+import os.path
+
 import numpy as np
 import pandas as pd
 import networkx as nx
@@ -19,14 +21,25 @@ import cross_associations.cluster_search as cs
 
 from temporal_features.egonet_deep_dive import get_curves, get_node_curves
 
+file_blocked_list="data_sample/blocked-list.csv"
 NODE_ID="node_ID"
 SOURCE="source"
 DESTINATION="destination"
 MEASURE="measure"
 TIMESTAMP="timestamp"
+UNIQUE_DATES=[]
+plotly_width="100%"
+plotly_height=800
 flag_graph_constructed=False
-generate_egonet = False
-
+generate_egonet=False
+ready_for_deep_dive=False
+fig_adj_matrix=None
+fig_cross_associations=None
+fig_cum_sum_in_degree=None
+fig_cum_sum_out_degree=None
+fig_cum_sum_in_call_count=None
+fig_cum_sum_out_call_count=None
+df_temporal_features=None
 
 # TODO: add config file with preset columns/cases
 preset_features = ("in_degree, out_degree, core",
@@ -64,10 +77,20 @@ def read_files(file_features, file_graph):
     
     # File with raw data (source, destination, measure, timestamp) to generate the graph
     df_graph = pd.read_csv(file_graph)
+    
+    if os.path.isfile(file_blocked_list):
+        # Remove nodes in the blocked-list
+        df_blocked_list = pd.read_csv(file_blocked_list)
+
+        df = df[~df[NODE_ID].isin(list(df_blocked_list[NODE_ID].values))].reset_index(drop=True)
+
+        df_graph = df_graph[~df_graph[SOURCE].isin(list(df_blocked_list[NODE_ID].values))]
+        df_graph = df_graph[~df_graph[DESTINATION].isin(df_blocked_list[NODE_ID].values)].reset_index(drop=True)
+
     flag_graph_constructed=False
 
 def adjust_input_data():
-    global df_graph, SOURCE, DESTINATION, MEASURE, TIMESTAMP
+    global df_graph, SOURCE, DESTINATION, MEASURE, TIMESTAMP, UNIQUE_DATES
 
     df_graph[TIMESTAMP] = df_graph[TIMESTAMP].astype('datetime64[s]')
     df_graph.sort_values(by=TIMESTAMP, inplace=True)
@@ -78,6 +101,8 @@ def adjust_input_data():
     df_graph = df_graph[df_graph[SOURCE] != df_graph[DESTINATION]]
     df_graph = df_graph[df_graph[MEASURE] > 0]
     df_graph = df_graph.groupby([TIMESTAMP, SOURCE, DESTINATION]).sum().add_suffix('').reset_index()
+
+    UNIQUE_DATES = df_graph[TIMESTAMP].dt.date.unique()
 
 def update_sidebar():
     """
@@ -92,7 +117,9 @@ def update_sidebar():
             max_value=5,
             value=2,
             step=1,
-            format="%d"
+            format="%d",
+            help="""Radius of the egonet. It
+                  may take a while to run. Use with caution."""
         )
     
         max_nodes_association_matrix = st.number_input(
@@ -208,7 +235,6 @@ def plot_scatter_matrix(columns):
         title='Scatter matrix with graph information',
         dragmode='select',
         hovermode='closest',
-        height=1000,
     ) 
     
     return fig
@@ -273,7 +299,6 @@ def plot_adj_matrix(G, markersize=2, compute_associations=True):
     return fig, fig_cross_associations
 
 
-
 def plot_cross_associations(sparse_matrix, markersize=2):
     """
     Find cross associations in the given adjacency matrix
@@ -326,12 +351,60 @@ def plot_cross_associations(sparse_matrix, markersize=2):
     return fig_cross_associations
 
 
+def set_fig_adj_matrix(fig_adj_matrix_):
+    global fig_adj_matrix
+    fig_adj_matrix = fig_adj_matrix_
+
+def set_fig_cross_associations(fig_cross_associations_):
+    global fig_cross_associations
+    fig_cross_associations = fig_cross_associations_
+
+def get_fig_adj_matrix():
+    global fig_adj_matrix
+    return fig_adj_matrix
+
+def get_fig_cross_associations():
+    global fig_cross_associations
+    return fig_cross_associations
+
+def set_temporal_figures(fig_cum_sum_in_degree_, fig_cum_sum_out_degree_, fig_cum_sum_in_call_count_, fig_cum_sum_out_call_count_):
+    global fig_cum_sum_in_degree, fig_cum_sum_out_degree, fig_cum_sum_in_call_count, fig_cum_sum_out_call_count
+    fig_cum_sum_in_degree = fig_cum_sum_in_degree_
+    fig_cum_sum_out_degree = fig_cum_sum_out_degree_
+    fig_cum_sum_in_call_count = fig_cum_sum_in_call_count_
+    fig_cum_sum_out_call_count = fig_cum_sum_out_call_count_
+
+def get_fig_cum_sum_in_degree():
+    global fig_cum_sum_in_degree
+    return fig_cum_sum_in_degree
+
+def get_fig_cum_sum_out_degree():
+    global fig_cum_sum_out_degree
+    return fig_cum_sum_out_degree
+
+def get_fig_cum_sum_in_call_count():
+    global fig_cum_sum_in_call_count
+    return fig_cum_sum_in_call_count
+
+def get_fig_cum_sum_out_call_count():
+    global fig_cum_sum_out_call_count
+    return fig_cum_sum_out_call_count
+
+def set_df_temporal_features(df_temporal_features_):
+    global df_temporal_features
+    df_temporal_features=df_temporal_features_
+
+def get_df_temporal_features():
+    global df_temporal_features
+    return df_temporal_features
+
 def launch_deep_dive():
     """
     Launch window to visualize features interactively
     and do deep dive on selected nodes
     """
-    global generate_egonet
+    global generate_egonet, ready_for_deep_dive
+    global get_cross_associations
 
     st.write(
         """
@@ -373,9 +446,13 @@ def launch_deep_dive():
 
             if st.button('Construct graph'):
                 construct_graph()
+
+                fig_adj_matrix = None
+                fig_cross_associations = None
     
     if flag_graph_constructed:
         update_sidebar()
+        
         df_result = pd.DataFrame()
         
         with st.expander("Interactive selection", expanded=True):
@@ -405,7 +482,9 @@ def launch_deep_dive():
                 
             if (len(selected_columns) > 2):
                 fig = plot_scatter_matrix(selected_columns)
-                selected_points = plotly_events(fig, select_event=True)
+                selected_points = plotly_events(fig, select_event=True,
+                                                    override_height=plotly_height,
+                                                    override_width=plotly_width,)
             
                 if len(selected_points) > 0:
                     st.write("Selected nodes:", len(selected_points))
@@ -414,10 +493,12 @@ def launch_deep_dive():
 
                     if st.button('Get EgoNet'):
                         generate_egonet = True
+                        get_cross_associations = True
+                        ready_for_deep_dive = False
 
-        if (generate_egonet == True):
-            with st.expander(label="Deep dive on selected nodes", expanded=True):
-
+        with st.expander(label="Deep dive on selected nodes", expanded=True):
+            if (generate_egonet == True and len(df_selected) > 0):
+                
                 st.write("### Adjacency matrix of the generated EgoNet")
 
                 final_G, idx_suspecious_nodes = get_egonet(G,
@@ -427,53 +508,101 @@ def launch_deep_dive():
                 
                 st.write("EgoNet size:", len(final_G.nodes))
 
-                if len(final_G.nodes) < max_nodes_association_matrix:
-                    fig_adj_matrix, fig_cross_associations = plot_adj_matrix(G=final_G)
-                else:
+                if get_cross_associations:
+                    if len(final_G.nodes) < max_nodes_association_matrix:
+                        fig_adj_matrix, fig_cross_associations = plot_adj_matrix(G=final_G)
+                        set_fig_adj_matrix(fig_adj_matrix_=fig_adj_matrix)
+                        set_fig_cross_associations(fig_cross_associations_=fig_cross_associations)
+                    else:
                         fig_adj_matrix = plot_adj_matrix(G=final_G, compute_associations=False)
+                        set_fig_adj_matrix(fig_adj_matrix_=fig_adj_matrix)
+
+                    #This is to prevent re-generating matrixes all the time                
+                    get_cross_associations = False
+                    set_temporal_figures(fig_cum_sum_in_degree_=None,
+                                         fig_cum_sum_out_degree_=None,
+                                         fig_cum_sum_in_call_count_=None,
+                                         fig_cum_sum_out_call_count_=None)
 
                 _, col1, _, col2, _ = st.columns([1, 3, 1, 3, 1])
-                col1.pyplot(fig_adj_matrix)
+                col1.pyplot(get_fig_adj_matrix())
 
                 if len(final_G.nodes) < max_nodes_association_matrix:
-                    col2.pyplot(fig_cross_associations)
+                    col2.pyplot(get_fig_cross_associations())
 
                 st.write("Nodes in the EgoNet:")
                 df_result = pd.DataFrame(data=final_G.nodes, columns=[NODE_ID]).set_index(NODE_ID).join(df.set_index(NODE_ID)).reset_index()
                 df_result.columns=df.columns
                 st.write(df_result)
+            
+        with st.expander(label="Check calls over time:", expanded=True):
+            if (len(df_result) > 0):
+                
+                col1_dates, col2_dates = st.columns([3, 1])
 
-                if len(df_result) > 0: # at least one node in the EgoNet
-                    df_temporal_features, fig_cum_sum_in_degree, fig_cum_sum_out_degree, fig_cum_sum_in_call_count, fig_cum_sum_out_call_count = get_curves(df_result,
-                                                    df_raw_data=df_graph,
-                                                    measure=MEASURE,
-                                                    timestamp=TIMESTAMP,
-                                                    source=SOURCE,
-                                                    destination=DESTINATION)
-                    
+                with col1_dates:
+                    selected_date = st.selectbox(
+                            "Select initial date",
+                            options=UNIQUE_DATES,
+                            index=0)
+
+                with col2_dates:
+                        n_days = st.number_input(
+                        "#Days to visualize calls",
+                        min_value=1,
+                        max_value=5,
+                        value=1 ,
+                        step=1,
+                        format="%d",
+                        help="""Maximum number of days to visualize the calls,
+                                from the selected date. Use with caution, it may
+                                take a while to compute.""",
+                        on_change=None
+                        )
+
+                if st.button("Visualize calls over time"):
+                    ready_for_deep_dive = True
+                    set_temporal_figures(fig_cum_sum_in_degree_=None,
+                                         fig_cum_sum_out_degree_=None,
+                                         fig_cum_sum_in_call_count_=None,
+                                         fig_cum_sum_out_call_count_=None)
+
+                    if (get_fig_cum_sum_in_degree() is None):
+                        print("Generating temporal features...")
+                        df_temporal_features, fig_cum_sum_in_degree, fig_cum_sum_out_degree, fig_cum_sum_in_call_count, fig_cum_sum_out_call_count = get_curves(df_result,
+                                                        df_raw_data=df_graph,
+                                                        measure=MEASURE,
+                                                        timestamp=TIMESTAMP,
+                                                        source=SOURCE,
+                                                        destination=DESTINATION,
+                                                        selected_date=selected_date,
+                                                        n_days=n_days)
+                        set_df_temporal_features(df_temporal_features)
+                        set_temporal_figures(fig_cum_sum_in_degree, fig_cum_sum_out_degree, fig_cum_sum_in_call_count, fig_cum_sum_out_call_count)
+                        print("Done generating temporal features.")
+
+                if (get_fig_cum_sum_in_degree()):
                     col1, _, col2 = st.columns([3, 1, 3])                    
-                    col1.pyplot(fig_cum_sum_in_degree)
-                    col2.pyplot(fig_cum_sum_out_degree)
+                    col1.pyplot(get_fig_cum_sum_in_degree())
+                    col2.pyplot(get_fig_cum_sum_out_degree())
 
                     col3, _, col4 = st.columns([3, 1, 3])
-                    col3.pyplot(fig_cum_sum_in_call_count)
-                    col4.pyplot(fig_cum_sum_out_call_count)
+                    col3.pyplot(get_fig_cum_sum_in_call_count())
+                    col4.pyplot(get_fig_cum_sum_out_call_count())
 
-        if generate_egonet:
-            with st.expander(label="Deep dive on selected node", expanded=True):
+        with st.expander("Deep dive on selected node:", expanded=True):
+            if (ready_for_deep_dive):
 
+                # Deep dive on selected node
                 selected_node = st.selectbox("Select node from EgoNet",
                                                     options=df_result,
-                                                    index=1)
+                                                    index=0)
 
-                # selected_node = st.text_input("Enter node ID to deep dive:")
-            
                 if st.button("Deep dive on selected node"):
-                    if len(selected_node) > 0:
-                        st.write("Deep dive on "+ selected_node)
-                        fig_selected_node_incoming, fig_selected_node_outgoing = get_node_curves(df_temporal_features, selected_node)
-                        
-                        col1_node_plot, _, col2_node_plot = st.columns([3, 1, 3])
+                    st.write("Deep dive on "+ str(selected_node))
+                    fig_selected_node_incoming, fig_selected_node_outgoing = get_node_curves(get_df_temporal_features(), selected_node)
+                    
+                    col1_node_plot, _, col2_node_plot = st.columns([3, 1, 3])
 
-                        col1_node_plot.pyplot(fig_selected_node_incoming)
-                        col2_node_plot.pyplot(fig_selected_node_outgoing)
+                    col1_node_plot.pyplot(fig_selected_node_incoming)
+                    col2_node_plot.pyplot(fig_selected_node_outgoing)
