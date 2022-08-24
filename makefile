@@ -1,6 +1,6 @@
 # goal: run demo for tgraphspot
 
-INPUT_DIR=data_sample
+INPUT_DIR=data
 SAMPLE_FILE=sample_raw_data.csv
 
 run:
