@@ -52,7 +52,7 @@ if __name__ == "__main__":
 
     if verbose > 0:
         print("\n\n ----")
-        jf.print_to_csv("allFeatures_nodeVectors.csv")
+        jf.print_to_csv("data/allFeatures_nodeVectors.csv")
         print(" check the file allFeatures_nodeVectors.csv ")
     
     print("---------------")

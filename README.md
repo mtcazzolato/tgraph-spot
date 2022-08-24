@@ -31,7 +31,7 @@ or
 
 ## Data Sample
 
-We provide a toy sample dataset on folder *data_sample/*. Check file *sample_raw_data.csv*  
+We provide a toy sample dataset on folder *data/*. Check file *sample_raw_data.csv*  
 
 ## Acknowledgement
 

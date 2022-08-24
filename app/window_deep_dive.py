@@ -21,7 +21,7 @@ import cross_associations.cluster_search as cs
 
 from temporal_features.egonet_deep_dive import get_curves, get_node_curves
 
-file_blocked_list="data_sample/blocked-list.csv"
+file_negative_list="data/negative-list.csv"
 NODE_ID="node_ID"
 SOURCE="source"
 DESTINATION="destination"
@@ -78,14 +78,14 @@ def read_files(file_features, file_graph):
     # File with raw data (source, destination, measure, timestamp) to generate the graph
     df_graph = pd.read_csv(file_graph)
     
-    if os.path.isfile(file_blocked_list):
-        # Remove nodes in the blocked-list
-        df_blocked_list = pd.read_csv(file_blocked_list)
+    if os.path.isfile(file_negative_list):
+        # Remove nodes in the negative-list
+        df_negative_list = pd.read_csv(file_negative_list)
 
-        df = df[~df[NODE_ID].isin(list(df_blocked_list[NODE_ID].values))].reset_index(drop=True)
+        df = df[~df[NODE_ID].isin(list(df_negative_list[NODE_ID].values))].reset_index(drop=True)
 
-        df_graph = df_graph[~df_graph[SOURCE].isin(list(df_blocked_list[NODE_ID].values))]
-        df_graph = df_graph[~df_graph[DESTINATION].isin(df_blocked_list[NODE_ID].values)].reset_index(drop=True)
+        df_graph = df_graph[~df_graph[SOURCE].isin(list(df_negative_list[NODE_ID].values))]
+        df_graph = df_graph[~df_graph[DESTINATION].isin(df_negative_list[NODE_ID].values)].reset_index(drop=True)
 
     flag_graph_constructed=False
 
@@ -434,10 +434,10 @@ def launch_deep_dive():
                                     help="Use in-built example file with raw data to demo the app")
 
         if use_example_features and not file_features:
-            file_features = "allFeatures_nodeVectors.csv"
+            file_features = "data/allFeatures_nodeVectors.csv"
 
         if use_example_graph and not file_graph:
-            file_graph = "data_sample/sample_raw_data.csv"
+            file_graph = "data/sample_raw_data.csv"
 
         if file_features and file_graph:
             read_files(file_features, file_graph)

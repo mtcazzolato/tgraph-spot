@@ -11,7 +11,7 @@ from window_hexbin import launch_w_hexbin
 from window_lasso import launch_w_lasso
 from window_scatter_matrix import launch_w_scatter_matrix
 from window_deep_dive import launch_deep_dive
-from window_blocked_list import launch_w_blocked_list
+from window_negative_list import launch_w_negative_list
 
 # Change page width and configure on load
 st.set_page_config(
@@ -27,7 +27,7 @@ w_tasks = ["Feature extraction",
            "Lasso selection and parallel coordinates",
            "Interactive scatter matrix",
            "Deep Dive",
-           "Manage blocked-list"
+           "Manage negative-list"
 ]
 
 with st.sidebar:
@@ -56,6 +56,6 @@ elif (selectbox_window_task == w_tasks[3]):
 elif (selectbox_window_task == w_tasks[4]):
     launch_deep_dive()
 elif (selectbox_window_task == w_tasks[5]):
-    launch_w_blocked_list()
+    launch_w_negative_list()
 else:
     st.write("# Sorry, tool not available yet")

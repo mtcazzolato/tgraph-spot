@@ -100,8 +100,8 @@ def run_t_graph(file, source, destination, measure, timestamp):
     
     # Save output features
     print("\n\n ----")
-    df_all_features.to_csv("allFeatures_nodeVectors.csv", index=False)
-    print("Check the file allFeatures_nodeVectors.csv ")
+    df_all_features.to_csv("data/allFeatures_nodeVectors.csv", index=False)
+    print("Check the file \"data/allFeatures_nodeVectors.csv\"")
     
 def launch_w_feature_extraction():
     """
@@ -129,7 +129,7 @@ def launch_w_feature_extraction():
                                 help="Use in-built example file to demo the app")
 
     if use_example_file:
-            file_source = "data_sample/sample_raw_data.csv"
+            file_source = "data/sample_raw_data.csv"
 
     if file_source is not None and file_source != '':
         st.write("Selected file:", file_source)
@@ -143,5 +143,5 @@ def launch_w_feature_extraction():
             if st.button('Run t-graph'):
                 run_t_graph(file_source, source, destination, measure, timestamp)
         
-                st.success("Finished extracting features. Check file *\'allFeatures_nodeVectors.csv\'*")
+                st.success("Finished extracting features. Check file *\'data/allFeatures_nodeVectors.csv\'*")
                 st.write("### Extracted features", df_all_features.head())

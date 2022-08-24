@@ -245,10 +245,10 @@ def launch_w_hexbin():
         )
 
     if use_example_file and not file:
-        file = "allFeatures_nodeVectors.csv"
+        file = "data/allFeatures_nodeVectors.csv"
 
     if use_example_file_labels and not file_labels:
-        file_labels = "data_sample/sample_raw_data.csv"
+        file_labels = "data/sample_raw_data.csv"
 
 
     if file:
