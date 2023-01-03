@@ -1,11 +1,24 @@
+
 # TgraphSpot
-Fast and Effective Anomaly Detection for Time-Evolving Graphs
+*TgraphSpot*: Fast and Effective Anomaly Detection for Time-Evolving Graphs
 
 **Authors:** Mirela T. Cazzolato<sup>1,2</sup>, Saranya Vijayakumar<sup>1</sup>, Xinyi Zheng<sup>1</sup>, Namyong Park<sup>1</sup>, Meng-Chieh Lee<sup>1</sup>, Pedro Fidalgo<sup>3,4</sup>, Bruno Lages<sup>3</sup>, Agma J. M. Traina<sup>2</sup>, Christos Faloutsos<sup>1</sup>.  
 
 **Affiliations:** <sup>1</sup> Carnegie Mellon University (CMU), <sup>2</sup> University of São Paulo (USP), <sup>3</sup> Mobileum, <sup>4</sup> ISCTE-IUL  
 
-*Work submitted for review.*  
+**Conference:** [IEEE International Conference on Big Data (Big Data), 2022 @ Osaka, Japan.](https://bigdataieee.org/BigData2022/)
+
+Please cite the paper as:
+
+```
+@inproceedings{cazzolato2022tgraphspot,
+  title={{TgraphSpot:} Fast and Effective Anomaly Detection for Time-Evolving Graphs},
+  author={Cazzolato, M.T. and Vijayakumar, S. and Zheng, X. and Lee, M-C. and Park, N and Fidalgo, P. and Lages, B. and Traina, A.J.M. and Faloutsos, C..},
+  booktitle={2022 IEEE International Conference on Big Data (Big Data)},
+  year={2022},
+  organization={IEEE},
+}
+```
 
 ## Requirements
 
@@ -108,7 +121,6 @@ The negative-list can be used to remove numbers (or nodes) that usually receive 
 
 
 https://user-images.githubusercontent.com/8514761/186825829-5bfa05c5-01a4-4482-adc1-1a3202c32070.mov
-
 
 
 

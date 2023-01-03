@@ -35,6 +35,16 @@ def read_file(file):
     
 
 def add_node_to_negativelist(node_id, file):
+    """
+    Add node ID to the negative list and save modified file
+    
+    Parameters
+    ----------
+    node_id: str
+        node ID to insert into the negative list
+    
+    """
+    
     global df_negative_list
 
     df_negative_list.loc[len(df_negative_list)] = [str(node_id)]
@@ -43,6 +53,16 @@ def add_node_to_negativelist(node_id, file):
 
 
 def remove_node_from_negativelist(node_id, file):
+    """
+    Remove node ID from the negative list and save modified file
+    
+    Parameters
+    ----------
+    node_id: str
+        node ID to be deleted from the negative list
+    
+    """
+    
     global df_negative_list
 
     df_negative_list.drop(df_negative_list[df_negative_list[NODE_ID].astype(str) == str(node_id)].index, inplace=True)

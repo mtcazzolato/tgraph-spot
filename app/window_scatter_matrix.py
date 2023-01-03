@@ -74,14 +74,9 @@ def read_files(file_features, file_graph):
     # File with raw data (source, destination, measure, timestamp) to generate the graph
     df_graph = pd.read_csv(file_graph)
 
-    if os.path.isfile(file_negative_list):
-        # Remove nodes in the negative-list
-        df_negative_list = pd.read_csv(file_negative_list)
-
-        df = df[~df[NODE_ID].isin(list(df_negative_list[NODE_ID].values))].reset_index(drop=True)
-
-        df_graph = df_graph[~df_graph[SOURCE].isin(list(df_negative_list[NODE_ID].values))]
-        df_graph = df_graph[~df_graph[DESTINATION].isin(df_negative_list[NODE_ID].values)].reset_index(drop=True)
+    filter_negative_list()
+    
+    df.fillna(0, inplace=True)
 
     flag_graph_constructed=False
 
@@ -154,6 +149,25 @@ def construct_graph():
     flag_graph_constructed=True
 
 
+def filter_negative_list():
+    """
+    Filter out nodes included in the negative list
+    """
+
+    global df, df_graph
+
+    if os.path.isfile(file_negative_list):
+        # Remove nodes in the negative-list
+        df_negative_list = pd.read_csv(file_negative_list)
+
+        df = df[~df[NODE_ID].isin(list(df_negative_list[NODE_ID].values))].reset_index(drop=True)
+        
+        df_graph = df_graph[~df_graph[SOURCE].isin(list(df_negative_list[NODE_ID].values))]
+        df_graph = df_graph[~df_graph[DESTINATION].isin(df_negative_list[NODE_ID].values)].reset_index(drop=True)
+    else:
+        print('No negative list found.')
+
+
 def plot_scatter_matrix(columns):
     """
     Plot interactive scatter plot with the selected columns as features
@@ -211,34 +225,34 @@ def plot_scatter_matrix(columns):
     return fig
 
 
-def get_egonet(G, suspecious_nodes, radius=1, column=''):
+def get_egonet(G, suspicious_nodes, radius=1, column=''):
     """
-    Compose a graph with the egonets of a given set of suspecious nodes.
+    Compose a graph with the egonets of a given set of suspicious nodes.
     Return the subgraph of the composed egonets and the index of
-    suspecious nodes inside the subgraph
+    suspicious nodes inside the subgraph
 
     Parameters
     ----------
     G: nx.Graph
         graph with all nodes to extract the EgoNets from
-    suspecious_nodes: list
-        list of suspecious nodes
+    suspicious_nodes: list
+        list of suspicious nodes
     radius: int
         step of the EgoNet
     """
         
     final_G = nx.empty_graph(create_using=nx.DiGraph())
 
-    for ego_node in suspecious_nodes:
+    for ego_node in suspicious_nodes:
         # create ego network
         hub_ego = nx.ego_graph(G, ego_node, radius=radius, distance='weight', undirected=True)
         final_G = nx.compose(final_G, hub_ego)
 
-    idx_suspecious_nodes = []
-    for node in suspecious_nodes: # TODO: improve this line (not pretty!)
-        idx_suspecious_nodes.append(list(np.where(pd.DataFrame(data=final_G.nodes()) == node)[0])[0])
+    idx_suspicious_nodes = []
+    for node in suspicious_nodes:
+        idx_suspicious_nodes.append(list(np.where(pd.DataFrame(data=final_G.nodes()) == node)[0])[0])
     
-    return final_G, idx_suspecious_nodes
+    return final_G, idx_suspicious_nodes
 
 
 def plot_adj_matrix(G, markersize=2, compute_associations=True):
@@ -413,8 +427,8 @@ def launch_w_scatter_matrix():
 
             st.write("### Adjacency matrix of the generated EgoNet")
 
-            final_G, idx_suspecious_nodes = get_egonet(G,
-                                    suspecious_nodes=df.loc[df_selected["pointNumber"].values][NODE_ID],
+            final_G, idx_suspicious_nodes = get_egonet(G,
+                                    suspicious_nodes=df.loc[df_selected["pointNumber"].values][NODE_ID],
                                     radius=ego_radius, #2-step way egonet
                                     column="core")
             

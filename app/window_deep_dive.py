@@ -1,3 +1,8 @@
+# Author: Mirela Cazzolato
+# Date: July 2022
+# Goal: Window to deep dive on selected nodes and check temporal features
+# =======================================================================
+
 import streamlit as st
 
 import os.path
@@ -77,19 +82,20 @@ def read_files(file_features, file_graph):
     
     # File with raw data (source, destination, measure, timestamp) to generate the graph
     df_graph = pd.read_csv(file_graph)
+
+    filter_negative_list()
     
-    if os.path.isfile(file_negative_list):
-        # Remove nodes in the negative-list
-        df_negative_list = pd.read_csv(file_negative_list)
-
-        df = df[~df[NODE_ID].isin(list(df_negative_list[NODE_ID].values))].reset_index(drop=True)
-
-        df_graph = df_graph[~df_graph[SOURCE].isin(list(df_negative_list[NODE_ID].values))]
-        df_graph = df_graph[~df_graph[DESTINATION].isin(df_negative_list[NODE_ID].values)].reset_index(drop=True)
-
+    df.fillna(0, inplace=True)
     flag_graph_constructed=False
 
+
 def adjust_input_data():
+    """
+    Adjust inpute data: cast timestamp column to datetime64,
+    remove calls with zero duration,
+    and remove calls with same source and destination.
+    """
+    
     global df_graph, SOURCE, DESTINATION, MEASURE, TIMESTAMP, UNIQUE_DATES
 
     df_graph[TIMESTAMP] = df_graph[TIMESTAMP].astype('datetime64[s]')
@@ -103,6 +109,7 @@ def adjust_input_data():
     df_graph = df_graph.groupby([TIMESTAMP, SOURCE, DESTINATION]).sum().add_suffix('').reset_index()
 
     UNIQUE_DATES = df_graph[TIMESTAMP].dt.date.unique()
+
 
 def update_sidebar():
     """
@@ -182,6 +189,24 @@ def construct_graph():
     generate_egonet = False
 
 
+def filter_negative_list():
+    """
+    Filter out nodes included in the negative list
+    """
+
+    global df, df_graph
+
+    if os.path.isfile(file_negative_list):
+        # Remove nodes in the negative-list
+        df_negative_list = pd.read_csv(file_negative_list)
+
+        df = df[~df[NODE_ID].isin(list(df_negative_list[NODE_ID].values))].reset_index(drop=True)
+        
+        df_graph = df_graph[~df_graph[SOURCE].isin(list(df_negative_list[NODE_ID].values))]
+        df_graph = df_graph[~df_graph[DESTINATION].isin(df_negative_list[NODE_ID].values)].reset_index(drop=True)
+    else:
+        print('No negative list found.')
+
 
 def plot_scatter_matrix(columns):
     """
@@ -240,34 +265,34 @@ def plot_scatter_matrix(columns):
     return fig
 
 
-def get_egonet(G, suspecious_nodes, radius=1, column=''):
+def get_egonet(G, suspicious_nodes, radius=1, column=''):
     """
-    Compose a graph with the egonets of a given set of suspecious nodes.
+    Compose a graph with the egonets of a given set of suspicious nodes.
     Return the subgraph of the composed egonets and the index of
-    suspecious nodes inside the subgraph
+    suspicious nodes inside the subgraph
 
     Parameters
     ----------
     G: nx.Graph
         graph with all nodes to extract the EgoNets from
-    suspecious_nodes: list
-        list of suspecious nodes
+    suspicious_nodes: list
+        list of suspicious nodes
     radius: int
         step of the EgoNet
     """
         
     final_G = nx.empty_graph(create_using=nx.DiGraph())
 
-    for ego_node in suspecious_nodes:
+    for ego_node in suspicious_nodes:
         # create ego network
         hub_ego = nx.ego_graph(G, ego_node, radius=radius, distance='weight', undirected=True)
         final_G = nx.compose(final_G, hub_ego)
 
-    idx_suspecious_nodes = []
-    for node in suspecious_nodes: # TODO: improve this line (not pretty!)
-        idx_suspecious_nodes.append(list(np.where(pd.DataFrame(data=final_G.nodes()) == node)[0])[0])
+    idx_suspicious_nodes = []
+    for node in suspicious_nodes:
+        idx_suspicious_nodes.append(list(np.where(pd.DataFrame(data=final_G.nodes()) == node)[0])[0])
     
-    return final_G, idx_suspecious_nodes
+    return final_G, idx_suspicious_nodes
 
 
 def plot_adj_matrix(G, markersize=2, compute_associations=True):
@@ -352,63 +377,152 @@ def plot_cross_associations(sparse_matrix, markersize=2):
 
 
 def set_fig_adj_matrix(fig_adj_matrix_):
+    """
+    Set the figure of adjacency matrix for the global variable
+    
+    Parameters
+    ----------
+    fig_adj_matrix_: Figure
+        Figure of adjacency matrix
+    """
+    
     global fig_adj_matrix
     fig_adj_matrix = fig_adj_matrix_
 
+
 def set_fig_cross_associations(fig_cross_associations_):
+    """
+    Set the figure of adjacency matrix with cross associations
+    for the global variable
+    
+    Parameters
+    ----------
+    fig_cross_associations: Figure
+        Figure of cross associations
+    """
+    
     global fig_cross_associations
     fig_cross_associations = fig_cross_associations_
 
+
 def get_fig_adj_matrix():
+    """
+    Get the figure of adjacency matrix from the global variable
+    """
+    
     global fig_adj_matrix
     return fig_adj_matrix
 
+
 def get_fig_cross_associations():
+    """
+    Get the figure of adjacency matrix with cross associations
+    from the global variable
+    """
+    
     global fig_cross_associations
     return fig_cross_associations
 
+
 def set_temporal_figures(fig_cum_sum_in_degree_, fig_cum_sum_out_degree_, fig_cum_sum_in_call_count_, fig_cum_sum_out_call_count_):
+    """
+    Set the figures of temporal features
+    for the global corresponding variables
+    
+    Parameters
+    ----------
+    fig_cum_sum_in_degree_:
+        Figure with cumulated in degree per node
+    fig_cum_sum_out_degree_:
+        Figure with cumulated out degree per node
+    fig_cum_sum_in_call_count_:
+        Figure with cumulated in call count per node
+    fig_cum_sum_out_call_count_:
+        Figure with cumulated out call count per node
+    
+    """
+    
     global fig_cum_sum_in_degree, fig_cum_sum_out_degree, fig_cum_sum_in_call_count, fig_cum_sum_out_call_count
     fig_cum_sum_in_degree = fig_cum_sum_in_degree_
     fig_cum_sum_out_degree = fig_cum_sum_out_degree_
     fig_cum_sum_in_call_count = fig_cum_sum_in_call_count_
     fig_cum_sum_out_call_count = fig_cum_sum_out_call_count_
 
+
 def get_fig_cum_sum_in_degree():
+    """
+    Get figure with cumulated in degree per node
+    """
+    
     global fig_cum_sum_in_degree
     return fig_cum_sum_in_degree
 
+
 def get_fig_cum_sum_out_degree():
+    """
+    Get Figure with cumulated out degree per node
+    """
+    
     global fig_cum_sum_out_degree
     return fig_cum_sum_out_degree
 
+
 def get_fig_cum_sum_in_call_count():
+    """
+    Get figure with cumulated in call count per node
+    """
+    
     global fig_cum_sum_in_call_count
     return fig_cum_sum_in_call_count
 
+
 def get_fig_cum_sum_out_call_count():
+    """
+    Get figure with cumulated out call count per node
+    
+    """
+    
     global fig_cum_sum_out_call_count
     return fig_cum_sum_out_call_count
 
+
 def set_df_temporal_features(df_temporal_features_):
+    """
+    Set dataframe with temporal features
+    for the global variable
+    
+    Parameters
+    ----------
+    df_temporal_features_:
+        Dataframe with temporal features
+    """
+    
     global df_temporal_features
     df_temporal_features=df_temporal_features_
 
+
 def get_df_temporal_features():
+    """
+    Get dataframe with temporal features
+    from the global variable
+    """
+    
     global df_temporal_features
     return df_temporal_features
+
 
 def launch_deep_dive():
     """
     Launch window to visualize features interactively
     and do deep dive on selected nodes
     """
+    
     global generate_egonet, ready_for_deep_dive
     global get_cross_associations
 
     st.write(
         """
-        # Deep dive on suspecious nodes
+        # Deep dive on suspicious nodes
         """
     )
 
@@ -501,8 +615,8 @@ def launch_deep_dive():
                 
                 st.write("### Adjacency matrix of the generated EgoNet")
 
-                final_G, idx_suspecious_nodes = get_egonet(G,
-                                        suspecious_nodes=df.loc[df_selected["pointNumber"].values][NODE_ID],
+                final_G, idx_suspicious_nodes = get_egonet(G,
+                                        suspicious_nodes=df.loc[df_selected["pointNumber"].values][NODE_ID],
                                         radius=ego_radius, #2-step way egonet
                                         column="core")
                 

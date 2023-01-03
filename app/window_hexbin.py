@@ -70,6 +70,7 @@ def sort_labels(label_column_node_id, label_column_name, label_true_value):
     
     # Get unique node values for True and False
     true_nodes = df_label[df_label[LABEL].astype(str) == str(LABEL_TRUE_VALUE)][NODE_ID_LABEL].unique()
+    
     df_label_unique = pd.DataFrame(data=true_nodes, columns=[NODE_ID_LABEL])
     
     LABEL_TRUE_VALUE = 'True'
@@ -193,7 +194,12 @@ def plot_hexbin_labeled():
                            figsize=[10,4])
 
     for i, l in enumerate(labels):
+    
         idx_label = get_label_indexes(label_value=l)
+        print(l)
+        print(len(idx_label))
+        print(idx_label[:20])
+
         if (len(idx_label) > 0):
             img = ax[i].hexbin(x = np.log10(df[feature1].loc[idx_label]+1),
                                         y = np.log10(df[feature2].loc[idx_label]+1),
@@ -298,7 +304,7 @@ def launch_w_hexbin():
                 if flag_labels_sorted:
                     read_file_label(file_labels)
                 
-                sort_labels(label_column_node_id, label_column_name, label_true_value)
+                sort_labels(label_column_node_id, label_column_name, str(label_true_value))
 
 
     # If the labels were read and sorted, show the top rows and corresponding plot
