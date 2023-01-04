@@ -361,7 +361,7 @@ def get_node_curves(df_temporal_features, query_hash):
                     height=df_temporal_features[columns].iloc[row].values)
 
     plt.grid()
-    plt.title('Cumulated incoming call duration per hour in 48 hours')
+    plt.title('Cumulated incoming call duration per hour')
     plt.ylabel('total in call duration (seconds)')
     plt.xlabel('timestamp (hours)')
 
@@ -381,7 +381,7 @@ def get_node_curves(df_temporal_features, query_hash):
                     height=df_temporal_features[columns].iloc[row].values)
 
     plt.grid()
-    plt.title('Cumulated outgoing call duration per hour in 48 hours')
+    plt.title('Cumulated outgoing call duration per hour')
     plt.ylabel('total out call duration (seconds)')
     plt.xlabel('timestamp (hours)')
 

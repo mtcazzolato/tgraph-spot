@@ -1,4 +1,3 @@
-
 # TgraphSpot
 *TgraphSpot*: Fast and Effective Anomaly Detection for Time-Evolving Graphs
 
@@ -13,7 +12,7 @@ Please cite the paper as:
 ```
 @inproceedings{cazzolato2022tgraphspot,
   title={{TgraphSpot:} Fast and Effective Anomaly Detection for Time-Evolving Graphs},
-  author={Cazzolato, M.T. and Vijayakumar, S. and Zheng, X. and Lee, M-C. and Park, N and Fidalgo, P. and Lages, B. and Traina, A.J.M. and Faloutsos, C..},
+  author={Cazzolato, M.T. and Vijayakumar, S. and Zheng, X. and Park, N. and Lee, M-C. and Fidalgo, P. and Lages, B. and Traina, A.J.M. and Faloutsos, C..},
   booktitle={2022 IEEE International Conference on Big Data (Big Data)},
   year={2022},
   organization={IEEE},
