@@ -1,3 +1,4 @@
+
 # TgraphSpot
 *TgraphSpot*: Fast and Effective Anomaly Detection for Time-Evolving Graphs
 
@@ -18,6 +19,15 @@ Please cite the paper as:
   organization={IEEE},
 }
 ```
+
+**Code Updates:**  
+
+- `May 10, 2023`  
+-- Organizing modules with tabs  
+-- Adding a single module for data input  
+-- Making "`MEASURE`" and "`TIMESTAMP`" columns optional  
+-- *Note: The "negative_list" module is being updated and will be available soon*  
+
 
 ## Requirements
 

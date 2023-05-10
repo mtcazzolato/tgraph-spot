@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 
 NODE_ID = "node_ID"
-TOTAL_COUNT = "total_count"
+CALL_COUNT = "call_count"
 SUM_MEASURE = "sum_measure"
 G = None
 all_prefix = []
@@ -82,7 +82,7 @@ def fill_temporal_features(df_slice, df_nodes, node_direction="source", prefix='
 
         # Aggregate iat per group/hash
         df_iat_measure = pd.DataFrame()
-        df_iat_measure[prefix_direction+TOTAL_COUNT+'__'+prefix]  = group.size()
+        df_iat_measure[prefix_direction+CALL_COUNT+'__'+prefix]  = group.size()
 
         # Creates groups by ahash values, get the duration of every row
         group = df_aux.groupby(by=[node_direction], axis=0)[MEASURE]
@@ -95,7 +95,7 @@ def fill_temporal_features(df_slice, df_nodes, node_direction="source", prefix='
         df_nodes = df_nodes.fillna(0)
     else:
         df_nodes[prefix_direction+SUM_MEASURE+'__'+prefix] = 0
-        df_nodes[prefix_direction+TOTAL_COUNT+'__'+prefix] = 0
+        df_nodes[prefix_direction+CALL_COUNT+'__'+prefix] = 0
 
     return df_nodes
 
@@ -191,7 +191,7 @@ def cum_sum_in_degree(df_nodes):
 
     plt.grid()
     plt.title('Cumulated in degree in the period')
-    plt.ylabel('cumulated  in degree')
+    plt.ylabel('cummulated  in degree')
     plt.xlabel('timestamp (hours)')
 
     # Add shades in the sleeping hours
@@ -217,7 +217,7 @@ def cum_sum_out_degree(df_nodes):
 
     plt.grid()
     plt.title('Cumulated out degree in the period')
-    plt.ylabel('cumulated  out degree')
+    plt.ylabel('cummulated  out degree')
     plt.xlabel('timestamp (hours)')
 
     # Add shades in the sleeping hours
@@ -230,11 +230,11 @@ def cum_sum_out_degree(df_nodes):
     return fig
 
 
-def cum_sum_in_total_count(df_nodes):
+def cum_sum_in_call_count(df_nodes):
     global all_prefix
 
     columns = []
-    for p in all_prefix: columns.append('in_total_count__' + p)
+    for p in all_prefix: columns.append('in_call_count__' + p)
 
     idx = df_nodes.sort_values(by=columns[-1], ascending=False).index
     fig = plt.figure(figsize=[8,4])
@@ -243,8 +243,8 @@ def cum_sum_in_total_count(df_nodes):
         plt.plot(df_nodes[columns].iloc[row].values+1)
 
     plt.grid()
-    plt.title('Cumulated incoming MEASURE in the period:')
-    plt.ylabel('cumulated in MEASURE count')
+    plt.title('Cumulated incoming calls in the period:')
+    plt.ylabel('cummulated  in call count')
     plt.xlabel('timestamp (hours)')
 
     # # Add shades in the sleeping hours
@@ -258,11 +258,11 @@ def cum_sum_in_total_count(df_nodes):
     return fig
 
 
-def cum_sum_out_total_count(df_nodes):
+def cum_sum_out_call_count(df_nodes):
     global all_prefix
 
     columns = []
-    for p in all_prefix: columns.append('out_total_count__' + p)
+    for p in all_prefix: columns.append('out_call_count__' + p)
 
     idx = df_nodes.sort_values(by=columns[-1], ascending=False).index
     fig = plt.figure(figsize=[8,4])
@@ -271,8 +271,8 @@ def cum_sum_out_total_count(df_nodes):
         plt.plot(df_nodes[columns].iloc[row].values+1)
 
     plt.grid()
-    plt.title('Cumulated outgoing MEASURE in the period:')
-    plt.ylabel('cumulated out MEASURE count')
+    plt.title('Cumulated outgoing calls in the period:')
+    plt.ylabel('cummulated out call count')
     plt.xlabel('timestamp (hours)')
 
     # # Add shades in the sleeping hours
@@ -286,20 +286,20 @@ def cum_sum_out_total_count(df_nodes):
     return fig
 
 
-def get_cum_total_counts(df_nodes):
+def get_cum_call_counts(df_nodes):
     columns = []
-    for p in all_prefix: columns.append('in_total_count__' + p)
+    for p in all_prefix: columns.append('in_call_count__' + p)
 
     for i in range(len(columns)-1):
         df_nodes[columns[i+1]] = df_nodes[columns[i]] + df_nodes[columns[i+1]]
         
     columns = []
-    for p in all_prefix: columns.append('out_total_count__' + p)
+    for p in all_prefix: columns.append('out_call_count__' + p)
 
     for i in range(len(columns)-1):
         df_nodes[columns[i+1]] = df_nodes[columns[i]] + df_nodes[columns[i+1]]
 
-    return cum_sum_in_total_count(df_nodes), cum_sum_out_total_count(df_nodes)
+    return cum_sum_in_call_count(df_nodes), cum_sum_out_call_count(df_nodes)
 
 
 def get_curves(df_nodes, df_raw_data, source, destination, measure, timestamp, selected_date, n_days=1):
@@ -334,15 +334,15 @@ def get_curves(df_nodes, df_raw_data, source, destination, measure, timestamp, s
     df_temporal_features = get_temporal_features(df_egonet, df_temporal_features, selected_date, n_days)
     fig_cum_sum_in_degree = cum_sum_in_degree(df_temporal_features)
     fig_cum_sum_out_degree = cum_sum_out_degree(df_temporal_features)
-    fig_cum_sum_in_total_count, fig_cum_sum_out_total_count = get_cum_total_counts(df_temporal_features)
+    fig_cum_sum_in_call_count, fig_cum_sum_out_call_count = get_cum_call_counts(df_temporal_features)
 
-    return df_temporal_features, fig_cum_sum_in_degree, fig_cum_sum_out_degree, fig_cum_sum_in_total_count, fig_cum_sum_out_total_count
+    return df_temporal_features, fig_cum_sum_in_degree, fig_cum_sum_out_degree, fig_cum_sum_in_call_count, fig_cum_sum_out_call_count
 
 
 def get_node_curves(df_temporal_features, query_hash):
     global all_prefix
 
-    # Incoming totals
+    # Incoming calls
     columns = []
     for p in all_prefix: columns.append('in_sum_measure__' + p)
 
@@ -361,11 +361,11 @@ def get_node_curves(df_temporal_features, query_hash):
                     height=df_temporal_features[columns].iloc[row].values)
 
     plt.grid()
-    plt.title('Cumulated incoming MEASURE per hour in the period')
-    plt.ylabel('total in MEASURE duration (seconds)')
+    plt.title('Cumulated incoming call duration per hour')
+    plt.ylabel('total in call duration (seconds)')
     plt.xlabel('timestamp (hours)')
 
-    # Outgoing totals
+    # Outgoing calls
     columns = []
     for p in all_prefix: columns.append('out_sum_measure__' + p)
 
@@ -381,8 +381,8 @@ def get_node_curves(df_temporal_features, query_hash):
                     height=df_temporal_features[columns].iloc[row].values)
 
     plt.grid()
-    plt.title('Cumulated outgoing MEASURE duration per hour in the period')
-    plt.ylabel('total out MEASURE duration (seconds)')
+    plt.title('Cumulated outgoing call duration per hour')
+    plt.ylabel('total out call duration (seconds)')
     plt.xlabel('timestamp (hours)')
 
 
