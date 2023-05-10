@@ -16,7 +16,7 @@ class DataNetwork():
                  timestamp=None):
         
         self.filename = filename
-        self.df = pd.read_csv(filename, nrows=300_000)
+        self.df = pd.read_csv(filename)
         
         # We should have at least SOURCE and DESTINATION columns
         assert len(self.df.columns) >= 2, "wrong # columns"
