@@ -22,11 +22,11 @@ Please cite the paper as:
 
 **Code Updates:**  
 
-- `May 10, 2023`  
+- `May 10-12, 2023`  
 -- Organizing modules with tabs  
 -- Adding a single module for data input  
 -- Making "`MEASURE`" and "`TIMESTAMP`" columns optional  
--- *Note: The "negative_list" module is being updated and will be available soon*  
+-- Updating requirements.txt file  
 
 
 ## Requirements

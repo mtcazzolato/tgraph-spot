@@ -92,9 +92,13 @@ def input_tab():
         use_example_file_features = st.checkbox("Use example file with features",
                                 False,
                                 help="Use in-built example file with features to demo the app")
-    
+
+        config.flag_use_negative_list = st.checkbox(label="Remove nodes from the negative-list",
+                                                    value=True,
+                                                    help="Select this option to ignore nodes that are in the negative-list.")
+
         if use_example_file_features and not file_features:
-            file_features = "data/allFeatures_nodeVectors.csv"
+            file_features = config.feature_file_path            
             
         if file_features:
             with st.spinner('Reading features...'):
@@ -110,7 +114,7 @@ def input_tab():
                                 help="Use in-built example file of raw data to demo the app")
 
         if use_example_graph and not file_graph:
-            file_graph = "data/sample_raw_data.csv"
+            file_graph = config.raw_data_file_path
 
         if file_graph:
             cc0, cc1, cc2, cc3, cc4 = st.columns([1, 1, 1, 1, 1])
@@ -197,7 +201,7 @@ def input_tab():
                 util.sort_labels()
 
                 st.success("Labels loaded.")
-
+    
 
 def hexbin_tab():
     with st.expander("Select features to visualize", expanded=True):
@@ -453,9 +457,44 @@ def deep_dive_tab():
 def negative_list_tab():
     """
     Manage list of negative (blocked) nodes
+    that must be ignored by the application
     """
 
-    st.write("Available soon -- being updated.")
+    st.write("Ongoing work.")
+    
+
+    with st.expander(label="List of nodes that must be ignored by the application", expanded=True):
+        use_example_file = st.checkbox(str("Use negative-list file \""+config.negative_list_file_path+"\""),
+                                    True,
+                                    disabled=True,
+                                    help="Use in-built example file for negative-list nodes in \""+config.negative_list_file_path+"\"")
+
+    with st.expander(label="Listed negative-nodes", expanded=True):
+        if (use_example_file and use_example_file != ""): # Always true
+            file_source = config.negative_list_file_path
+
+        if (file_source is not None and file_source != ""):
+            st.write("Selected file:", file_source)
+            
+            util.initialize_negative_list()            
+            
+            col1, col2 = st.columns([1, 1])
+
+            with col1:
+                new_negative_list_item = st.text_input("Enter Node ID to add to the negative-list:")
+
+                if st.button("Add node to list"):
+                    util.add_node_to_negativelist(node_id=new_negative_list_item)
+                    st.success("Node added to the negative-list file.")
+            
+            with col2:
+                node_to_remove = st.text_input("Enter Node ID to delete from negative-list:")
+                if st.button("Delete node from list"):
+                    util.remove_node_from_negativelist(node_id=node_to_remove)
+                    st.success("Node deleted from the negative-list file.")
+
+        st.write(config.df_negative_list.astype(str))
+    
 
 
 def update_sidebar():
@@ -500,7 +539,7 @@ def launch_w_dashboard():
 
     tab_feature_extraction, tab_input_data, tab_HexBin, tab_DeepDive, tab_negative_list = st.tabs([
                                                                  "Feature Extraction",
-                                                                 "Input Data",
+                                                                 "Input Data (mandatory)",
                                                                  "HexBin",
                                                                  "Deep Dive",
                                                                  "Negative-List"])

@@ -12,6 +12,7 @@ UNIQUE_DATES=[]
 # Global dataframes
 df_dataset_fextraction=False
 df_features=None
+df_negative_list=None
 df_selected=None
 df_labels=None
 df_raw_data=None
@@ -25,6 +26,7 @@ flag_raw_data_loaded=False
 flag_graph_constructed=False
 flag_egonet_constructed=False
 flag_update_matrices=False
+flag_use_negative_list=False
 
 # Graph for deep dive
 G = None
@@ -75,8 +77,11 @@ fig_cum_sum_out_total_count=None
 fig_selected_node_incoming=None
 fig_selected_node_outgoing=None
 fig_parallel_coordinates=None
-fig_scatter_matrix_callmine=None
-fig_sample_image_background=None
+
+# Filenames
+feature_file_path="data/allFeatures_nodeVectors.csv"
+raw_data_file_path="data/sample_raw_data.csv"
+negative_list_file_path="data/negative-list.csv"
 
 
 preset_features = ("in_degree, out_degree, core",

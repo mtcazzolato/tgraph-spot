@@ -1,6 +1,10 @@
 import config
 
 import sys
+import os.path
+from os import remove
+from pyparsing import col
+
 import numpy as np
 import pandas as pd
 import networkx as nx
@@ -12,15 +16,7 @@ import matplotlib.patches as patches
 import plotly.graph_objs as go
 import plotly.express as px
 
-import datashader as ds
-import datashader.transfer_functions as tf
-from datashader.colors import inferno
-from matplotlib.cm import jet
-
 # t-graph modules
-# import tgraph.static_graph as SG
-# import tgraph.temporal_graph as TG
-
 sys.path.insert(0, 'app/tgraph')
 from tgraph import TGraph
 
@@ -76,37 +72,11 @@ def run_t_graph(file, source, destination, measure, timestamp):
                         measure=measure,
                         timestamp=timestamp)
 
-    my_tgraph.data_network.df_nodes.to_csv("data/allFeatures_nodeVectors.csv", index=False)
+    my_tgraph.data_network.df_nodes.to_csv(config.feature_file_path, index=False)
 
     print(my_tgraph.data_network.df_nodes.head())
 
     return my_tgraph.data_network.df_nodes.head()
-
-    # # Get static features
-    # sg = SG.StaticGraph(filename=file,
-    #                     source=source,
-    #                     destination=destination,
-    #                     measure=measure)
-    # sg.my_print()
-    
-    # # Get temporal features
-    # tg = TG.TemporalGraph(filename=file,
-    #                       source=source,
-    #                       destination=destination,
-    #                       measure=measure,
-    #                       timestamp=timestamp)
-    # tg.my_print()
-    
-    # # Join static and temporal features
-    # df_all_features = sg.df_nodes.set_index(config.NODE_ID).join(tg.df_nodes.set_index(config.NODE_ID)).reset_index()
-    # df_all_features.fillna(0)
-    
-    # # Save output features
-    # print("\n\n ----")
-    # df_all_features.to_csv("data/allFeatures_nodeVectors.csv", index=False)
-    # print("Check the file \"data/allFeatures_nodeVectors.csv\"")
-
-    # return df_all_features.head()
 
 
 def read_file_features(file):
@@ -121,6 +91,15 @@ def read_file_features(file):
 
     config.df_features = pd.read_csv(file)
     config.flag_features_loaded=True
+
+    if os.path.isfile(config.negative_list_file_path):
+        # Remove nodes in the negative-list
+        config.df_negative_list = pd.read_csv(config.negative_list_file_path)
+
+        if (len(config.df_negative_list)>0):
+            config.df_features = config.df_features[~config.df_features[config.NODE_ID].isin(list(config.df_negative_list[config.NODE_ID].values))].reset_index(drop=True)
+    else:
+        print('No negative list found.')
 
 
 def read_file_label(file):
@@ -155,12 +134,73 @@ def read_file_graph(file):
     config.flag_raw_data_loaded=True
     
 
+def initialize_negative_list():
+    """
+
+    """
+
+    if os.path.isfile(config.negative_list_file_path):
+        config.df_negative_list = pd.read_csv(config.negative_list_file_path)
+    else:
+        print("Negative-list file doesn't exist. Creating a new one.")
+        config.df_negative_list = pd.DataFrame(columns=[config.NODE_ID])
+        config.df_negative_list.to_csv(config.negative_list_file_path, index=False)
+        
+    config.df_negative_list = config.df_negative_list.astype(str)
+
+
+def add_node_to_negativelist(node_id):
+    """
+    Add node ID to the negative list and save modified file
+    
+    Parameters
+    ----------
+    node_id: str
+        node ID to insert into the negative list
+    
+    """
+    
+    config.df_negative_list.loc[len(config.df_negative_list)] = [str(node_id)]
+    config.df_negative_list = config.df_negative_list.drop_duplicates(keep="first",
+                                                                      inplace=False,
+                                                                      ignore_index=True)
+    config.df_negative_list.to_csv(config.negative_list_file_path, index=False)
+
+
+def remove_node_from_negativelist(node_id):
+    """
+    Remove node ID from the negative list and save modified file
+    
+    Parameters
+    ----------
+    node_id: str
+        node ID to be deleted from the negative list
+    
+    """
+    
+    config.df_negative_list.drop(config.df_negative_list[config.df_negative_list[config.NODE_ID].astype(str) == str(node_id)].index, inplace=True)
+    config.df_negative_list.to_csv(config.negative_list_file_path, index=False)
+
+
 def construct_graph():
     """
     Construct graph for the deep dive with selected attributes
     """
 
+    # Remove nodes fromt he negative list first
+    if config.flag_use_negative_list:
 
+        if os.path.isfile(config.negative_list_file_path):
+            # Remove nodes in the negative-list
+            config.df_negative_list = pd.read_csv(config.negative_list_file_path)
+
+            if (len(config.df_negative_list)>0 and len(config.df_raw_data)>0):
+                config.df_raw_data = config.df_raw_data[~config.df_raw_data[config.SOURCE].isin(list(config.df_negative_list[config.NODE_ID].values))]
+                config.df_raw_data = config.df_raw_data[~config.df_raw_data[config.DESTINATION].isin(list(config.df_negative_list[config.NODE_ID].values))].reset_index(drop=True)
+        else:
+            print('No negative list found.')
+
+    # Construct graph
     config.G = nx.from_pandas_edgelist(config.df_raw_data,
                                        source=config.SOURCE,
                                        target=config.DESTINATION,
@@ -601,136 +641,3 @@ def plot_parallel_coordinates(df_features, columns):
     config.fig_parallel_coordinates.update_layout(
         font_size=22
     )
-
-
-def get_sample(budget=1_000):
-    sample_idx = np.random.randint(low=0, high=len(config.df_features)-1, size=budget, dtype=int)
-    
-    return sample_idx
-
-
-def gen_ds_image(x_range, y_range, plot_width, plot_height, c1, c2):
-
-    if x_range is None or y_range is None or plot_width is None or plot_height is None:
-        return None
-    
-    cvs = ds.Canvas(x_range=x_range, y_range=y_range, plot_height=plot_height, plot_width=plot_width)
-    agg_scatter = cvs.points(np.log10(config.df_features[[c1, c2]]+1), 
-                         c1, c2
-                             # , ds.count_cat('core')
-                            )
-    img = tf.shade(agg_scatter, cmap=jet, how='log')
-    img = tf.dynspread(img, threshold=0.95, max_px=1, shape='circle')
-    
-    return img.to_pil()
-
-
-def plot_sample_with_complete_background(column1, column2, outlier_ids=[], include_sample=False):
-    # TODO
-    # Plot sample and static background for reference
-
-    if include_sample:
-        sample_idx = get_sample(budget=1_000)
-
-    x_range=[0, np.log10(config.df_features[column1].max()+1)]
-    y_range=[0, np.log10(config.df_features[column2].max()+1)]
-    # plot_height=1200
-    plot_width=1000
-
-    initial_img = gen_ds_image(x_range, y_range,
-                                plot_width=plot_width, plot_height=config.plotly_height,
-                                c1=column1, c2=column2)
-
-    config.fig_sample_image_background = go.FigureWidget(data=[{'x': x_range, 
-                           'y': y_range, 
-                           'mode': 'markers',
-                           'marker': {'opacity': 0}}], # invisible trace to init axes and to support autoresize
-                    layout={'width': plot_width, 'height': config.plotly_height})
-
-    config.fig_sample_image_background.layout.images = [go.layout.Image(
-        source = initial_img,  # plotly now performs auto conversion of PIL image to png data URI
-        xref = "x",
-        yref = "y",
-        x = x_range[0],
-        y = y_range[1],
-        sizex = x_range[1] - x_range[0],
-        sizey = y_range[1] - y_range[0],
-        sizing = "stretch",
-        layer = "below"
-        )
-    ]
-
-    def update_ds_image(layout, x_range, y_range, plot_width, plot_height):
-        img = config.fig_sample_image_background.layout.images[0]
-        
-        # Update with batch_update so all updates happen simultaneously
-        with config.fig_sample_image_background.batch_update():
-            img.x = x_range[0]
-            img.y = y_range[1]
-            img.sizex = x_range[1] - x_range[0]
-            img.sizey = y_range[1] - y_range[0]
-            img.source = gen_ds_image(x_range, y_range, plot_width, plot_height)
-
-    # Install callback to run exactly once if one or more of the following properties changes
-    #  - xaxis range
-    #  - yaxis range
-    #  - figure width
-    #  - figure height
-    config.fig_sample_image_background.layout.on_change(update_ds_image, 'xaxis.range', 'yaxis.range', 'width', 'height')
-    config.fig_sample_image_background.layout.dragmode = 'zoom'
-
-
-    if include_sample:
-        config.fig_sample_image_background.add_trace(
-                go.Scatter(
-                    x=np.log10(config.df_features[column1].iloc[sample_idx]+1),
-                    y=np.log10(config.df_features[column2].iloc[sample_idx]+1),
-                    mode='markers',
-                    showlegend=False,
-                    marker=dict(
-                        # symbol='x',
-                        symbol='circle',
-                        opacity=0.3,
-                        color='white',
-                        size=8,
-                        line=dict(width=1),
-                    )
-                ),
-        )
-    
-    # Include outliers
-    config.fig_sample_image_background.add_trace(
-            go.Scatter(
-                x=np.log10(config.df_features[column1].iloc[outlier_ids]+1),
-                y=np.log10(config.df_features[column2].iloc[outlier_ids]+1),
-                mode='markers',
-                showlegend=False,
-                marker=dict(
-                    # symbol='x',
-                    symbol='circle',
-                    opacity=0.8,
-                    color='red',
-                    size=5,
-                    line=dict(width=1),
-                )
-            ),
-    )
-    
-
-    config.fig_sample_image_background.layout.xaxis.title = column1.replace('_', ' ') + ' — log10(x+1)'
-    config.fig_sample_image_background.layout.yaxis.title = column2.replace('_', ' ') + ' — log10(x+1)'
-        
-    # config.fig_sample_image_background.update_layout(
-    #             autosize=True,
-    #             dragmode='select',
-    #             hovermode='closest',
-    # )
-
-    config.fig_sample_image_background.update_traces(
-                unselected_marker=dict(opacity=0.1, size=5),
-                selected_marker=dict(size=15, opacity=0.7, color='black'),
-                selector=dict(type='splom'),
-                diagonal_visible=False
-    )
-
-    # return config.fig_sample_image_background
