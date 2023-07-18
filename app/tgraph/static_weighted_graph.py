@@ -13,13 +13,17 @@ class StaticWeightedGraph():
         # assert fn.MEASURE in self.data_network.headers, "MEASURE column not found"
     
     def graph2vec(self):
-        self.fill_weighted_degree()
-        self.fill_weighted_in_degree()
-        self.fill_weighted_out_degree()
-        
         if fn.MEASURE in self.data_network.headers:
+            self.fill_weighted_degree()
+            self.fill_weighted_in_degree()
+            self.fill_weighted_out_degree()
             self.get_in_measures()
             self.get_out_measures()
+        else:
+            self.fill_weighted_degrees_as_frequency(node_direction=fn.SOURCE, column_name=fn.WEIGHTED_OUT_DEGREE)
+            self.fill_weighted_degrees_as_frequency(node_direction=fn.DESTINATION, column_name=fn.WEIGHTED_IN_DEGREE)
+            self.data_network.df_nodes[fn.WEIGHTED_DEGREE] = self.data_network.df_nodes[fn.WEIGHTED_IN_DEGREE] + self.data_network.df_nodes[fn.WEIGHTED_OUT_DEGREE]
+
     
     def fill_weighted_in_degree(self):
         in_degs = [(node, val) for (node, val) in self.data_network.G.in_degree(weight=fn.MEASURE)]
@@ -53,7 +57,7 @@ class StaticWeightedGraph():
         
     def fill_measure_statistics(self, node_direction=fn.SOURCE, prefix='out_'):
         
-        # Creates groups by ahash values, get the duration of every row
+        # Creates groups by source or destination values, get the duration of every row
         group = self.data_network.df.groupby(by=[node_direction], axis=0)[fn.MEASURE]
         
         df_measure = pd.DataFrame()
@@ -76,3 +80,17 @@ class StaticWeightedGraph():
         self.data_network.df_nodes = self.data_network.df_nodes.fillna(0)
 
     
+    def fill_weighted_degrees_as_frequency(self, node_direction=fn.SOURCE, column_name=fn.WEIGHTED_OUT_DEGREE):
+        # Creates groups by source or destination values, get frequency of each pair {source, destination}
+        group = self.data_network.df.groupby(by=[node_direction], axis=0)
+        df_measure = pd.DataFrame()
+        df_measure[column_name]      = group.size()
+        df_measure.reset_index(inplace=True)
+        
+        self.data_network.df_nodes = self.data_network.df_nodes.merge(df_measure, left_on=fn.NODE_ID,
+                                                                      right_on=node_direction, how='left')
+        self.data_network.df_nodes = self.data_network.df_nodes.drop(columns=[node_direction])
+        self.data_network.df_nodes = self.data_network.df_nodes.fillna(0)
+
+
+
